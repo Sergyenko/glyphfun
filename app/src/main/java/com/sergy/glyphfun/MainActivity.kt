@@ -99,14 +99,6 @@ class MainActivity : Activity() {
                 insets
             }
         }
-        root.addView(TextView(this).apply {
-            text = "GlyphFun — draw on the matrix"
-            setTextColor(Color.WHITE)
-            textSize = 20f
-            gravity = Gravity.CENTER
-            setPadding(0, 0, 0, 16)
-        })
-
         // Tab bar: Glyph playground | Pomodoro stats
         tabGlyph = tabLabel("Glyph") { selectTab(stats = false) }
         tabStats = tabLabel("🍅 Stats") { selectTab(stats = true) }
