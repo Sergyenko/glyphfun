@@ -149,16 +149,11 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
-        listOf<Pair<String, () -> Unit>>(
-            "🧹" to { stopAnimation(); grid.clear() },
-            "💤" to { stopAnimation(); grid.clear(); turnOff() }
-        ).forEach { (symbol, action) ->
-            controls.addView(roundButton(symbol, action),
-                LinearLayout.LayoutParams(buttonSize, buttonSize).apply {
-                    marginStart = buttonMargin
-                    marginEnd = buttonMargin
-                })
-        }
+        controls.addView(roundButton("🧹") { stopAnimation(); grid.clear() },
+            LinearLayout.LayoutParams(buttonSize, buttonSize).apply {
+                marginStart = buttonMargin
+                marginEnd = buttonMargin
+            })
         root.addView(controls, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT))
@@ -194,8 +189,6 @@ class MainActivity : Activity() {
     private fun pushGrid() = pushFrame(grid.pixels)
 
     private fun pushFrame(frame: IntArray) = GlyphLink.pushFrame(this, frame)
-
-    private fun turnOff() = GlyphLink.turnOff(this)
 
     private fun requestPomodoroTile() =
         requestTile(PomodoroTileService::class.java, R.string.pomodoro_tile_label, R.drawable.ic_pomodoro)
