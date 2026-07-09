@@ -1,14 +1,12 @@
 package com.sergy.glyphfun
 
 import android.app.Activity
-import android.app.StatusBarManager
-import android.content.ComponentName
+import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.drawable.GradientDrawable
-import android.graphics.drawable.Icon
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -38,6 +36,8 @@ class MainActivity : Activity() {
     private lateinit var pomodoroBar: ProgressBar
     private lateinit var customText: EditText
     private lateinit var reasonInput: EditText
+    private lateinit var focusButton: Button
+    private lateinit var interruptButton: Button
     private lateinit var glyphTab: LinearLayout
     private lateinit var statsTab: ScrollView
     private lateinit var statsContent: LinearLayout
@@ -193,10 +193,21 @@ class MainActivity : Activity() {
             }
         }
         glyphTab.addView(reasonInput)
-        glyphTab.addView(buttonRow(
-            "▶ Focus" to { pomodoro(PomodoroService.ACTION_START) },
-            "■ Stop" to { pomodoro(PomodoroService.ACTION_STOP) },
-            "Add tile" to { requestPomodoroTile() }))
+        focusButton = Button(this).apply {
+            text = "▶ Focus"
+            setOnClickListener { pomodoro(PomodoroService.ACTION_START) }
+        }
+        interruptButton = Button(this).apply {
+            text = "■ Interrupt"
+            visibility = View.GONE
+            setOnClickListener { confirmInterrupt() }
+        }
+        val pomodoroRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        pomodoroRow.addView(focusButton,
+            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        pomodoroRow.addView(interruptButton,
+            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        glyphTab.addView(pomodoroRow)
 
         // Spacer pushes the control icons to the very bottom.
         glyphTab.addView(View(this),
@@ -248,10 +259,13 @@ class MainActivity : Activity() {
         statsContent.removeAllViews()
         val entries = PomodoroLog.todayEntries(this).sortedByDescending { it.ts }
         lastStatsCount = entries.size
+        val completed = entries.count { it.completed }
+        val interrupted = entries.size - completed
         val good = entries.count { it.rating == PomodoroLog.RATING_GOOD }
         val bad = entries.count { it.rating == PomodoroLog.RATING_BAD }
         statsContent.addView(TextView(this).apply {
-            text = "Today — ${entries.size} 🍅    👍 $good · 👎 $bad"
+            text = "Today — $completed 🍅    👍 $good · 👎 $bad" +
+                if (interrupted > 0) "    ✗ $interrupted" else ""
             setTextColor(Color.WHITE)
             textSize = 18f
             gravity = Gravity.CENTER
@@ -273,24 +287,32 @@ class MainActivity : Activity() {
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(0, 8, 0, 8)
             }
+            val label = if (entry.completed) {
+                "${fmt.format(Date(entry.ts))}   ${entry.reason.ifEmpty { "(no goal)" }}"
+            } else {
+                "${fmt.format(Date(entry.ts))}   ✗ ${entry.reason.ifEmpty { "(no goal)" }}" +
+                    if (entry.note.isNotEmpty()) " — ${entry.note}" else ""
+            }
             row.addView(TextView(this).apply {
-                text = "${fmt.format(Date(entry.ts))}   ${entry.reason.ifEmpty { "(no goal)" }}"
-                setTextColor(Color.LTGRAY)
+                text = label
+                setTextColor(if (entry.completed) Color.LTGRAY else Color.DKGRAY)
                 textSize = 15f
             }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-            listOf(PomodoroLog.RATING_GOOD to "👍", PomodoroLog.RATING_BAD to "👎")
-                .forEach { (value, icon) ->
-                    row.addView(TextView(this).apply {
-                        text = icon
-                        textSize = 20f
-                        alpha = if (entry.rating == value) 1f else 0.3f
-                        setPadding(28, 8, 28, 8)
-                        setOnClickListener {
-                            PomodoroLog.rate(this@MainActivity, entry.ts, value)
-                            rebuildStats()
-                        }
-                    })
-                }
+            if (entry.completed) {
+                listOf(PomodoroLog.RATING_GOOD to "👍", PomodoroLog.RATING_BAD to "👎")
+                    .forEach { (value, icon) ->
+                        row.addView(TextView(this).apply {
+                            text = icon
+                            textSize = 20f
+                            alpha = if (entry.rating == value) 1f else 0.3f
+                            setPadding(28, 8, 28, 8)
+                            setOnClickListener {
+                                PomodoroLog.rate(this@MainActivity, entry.ts, value)
+                                rebuildStats()
+                            }
+                        })
+                    }
+            }
             statsContent.addView(row)
         }
     }
@@ -325,31 +347,33 @@ class MainActivity : Activity() {
 
     private fun pushFrame(frame: IntArray) = GlyphLink.pushFrame(this, frame)
 
-    private fun requestPomodoroTile() =
-        requestTile(PomodoroTileService::class.java, R.string.pomodoro_tile_label, R.drawable.ic_pomodoro)
-
-    private fun requestTile(service: Class<*>, labelRes: Int, iconRes: Int) {
-        val sbm = getSystemService(StatusBarManager::class.java)
-        sbm.requestAddTileService(
-            ComponentName(this, service),
-            getString(labelRes),
-            Icon.createWithResource(this, iconRes),
-            mainExecutor
-        ) { result ->
-            runOnUiThread {
-                status.text = when (result) {
-                    StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED -> "Tile added — swipe down to use it"
-                    StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED -> "Tile is already in Quick Settings"
-                    else -> "Tile not added"
-                }
-            }
-        }
-    }
-
     // --- Pomodoro --------------------------------------------------------
+
+    /** Confirms interruption and logs it with an optional explanation. */
+    private fun confirmInterrupt() {
+        val input = EditText(this).apply {
+            hint = "Why interrupt? (optional)"
+            isSingleLine = true
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Interrupt pomodoro?")
+            .setView(input)
+            .setPositiveButton("Interrupt") { _, _ ->
+                if (PomodoroService.running &&
+                    PomodoroService.phase == PomodoroService.Phase.FOCUS) {
+                    PomodoroLog.addInterrupted(this,
+                        PomodoroService.currentReason, input.text.toString().trim())
+                }
+                pomodoro(PomodoroService.ACTION_STOP)
+            }
+            .setNegativeButton("Keep going", null)
+            .show()
+    }
 
     private val pomodoroUpdater = object : Runnable {
         override fun run() {
+            focusButton.visibility = if (PomodoroService.running) View.GONE else View.VISIBLE
+            interruptButton.visibility = if (PomodoroService.running) View.VISIBLE else View.GONE
             if (PomodoroService.running) {
                 pomodoroBar.visibility = View.VISIBLE
                 pomodoroBar.progress = (PomodoroService.progressFraction() * 1000).toInt()

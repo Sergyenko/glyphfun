@@ -13,7 +13,13 @@ import java.time.ZoneId
  */
 object PomodoroLog {
 
-    data class Entry(val ts: Long, val reason: String, val rating: String?)
+    data class Entry(
+        val ts: Long,
+        val reason: String,
+        val rating: String?,
+        val completed: Boolean = true,
+        val note: String = "",
+    )
 
     const val RATING_GOOD = "good"
     const val RATING_BAD = "bad"
@@ -29,7 +35,9 @@ object PomodoroLog {
         return (0 until arr.length()).map { i ->
             val o = arr.getJSONObject(i)
             Entry(o.getLong("ts"), o.optString("reason"),
-                o.optString("rating").ifEmpty { null })
+                o.optString("rating").ifEmpty { null },
+                o.optBoolean("completed", true),
+                o.optString("note"))
         }
     }
 
@@ -44,6 +52,11 @@ object PomodoroLog {
         save(context, entries(context) + Entry(System.currentTimeMillis(), reason, null))
     }
 
+    fun addInterrupted(context: Context, reason: String, note: String) {
+        save(context, entries(context) +
+            Entry(System.currentTimeMillis(), reason, null, completed = false, note = note))
+    }
+
     fun rate(context: Context, ts: Long, rating: String) {
         save(context, entries(context).map {
             if (it.ts == ts) it.copy(rating = rating) else it
@@ -55,6 +68,8 @@ object PomodoroLog {
         list.takeLast(MAX_ENTRIES).forEach { e ->
             arr.put(JSONObject().put("ts", e.ts).put("reason", e.reason).apply {
                 e.rating?.let { put("rating", it) }
+                if (!e.completed) put("completed", false)
+                if (e.note.isNotEmpty()) put("note", e.note)
             })
         }
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
