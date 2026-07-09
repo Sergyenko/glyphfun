@@ -14,6 +14,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowInsets
 import android.widget.Button
+import android.widget.HorizontalScrollView
 import android.widget.ProgressBar
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -96,6 +97,18 @@ class MainActivity : Activity() {
             "Life" to { startLife() }))
         root.addView(buttonRow("Random" to { startSparkle() },
             "Off" to { stopAnimation(); grid.clear(); turnOff() }))
+        val presetRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        PRESETS.forEach { preset ->
+            presetRow.addView(Button(this).apply {
+                text = preset.name
+                setOnClickListener { startPreset(preset) }
+            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT))
+        }
+        root.addView(HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            addView(presetRow)
+        })
         pomodoroHeader = TextView(this).apply {
             text = "Pomodoro"
             setTextColor(Color.LTGRAY)
@@ -200,6 +213,12 @@ class MainActivity : Activity() {
     }
 
     // --- Animations ----------------------------------------------------
+
+    private fun startPreset(preset: Preset) {
+        startAnimation(preset.frameMs) { tick, frame ->
+            preset.frames[tick % preset.frames.size].copyInto(frame)
+        }
+    }
 
     private fun stopAnimation() {
         animator?.let { handler.removeCallbacks(it) }

@@ -2,6 +2,7 @@ package com.sergy.glyphfun
 
 import android.content.ComponentName
 import android.content.Context
+import android.util.Log
 import com.nothing.ketchum.Glyph
 import com.nothing.ketchum.GlyphMatrixManager
 
@@ -15,6 +16,8 @@ import com.nothing.ketchum.GlyphMatrixManager
  * connected are queued and run on connect.
  */
 object GlyphLink {
+
+    private const val TAG = "GlyphLink"
 
     private var gm: GlyphMatrixManager? = null
     private var ready = false
@@ -35,7 +38,8 @@ object GlyphLink {
             gm = GlyphMatrixManager.getInstance(context.applicationContext)
             gm?.init(object : GlyphMatrixManager.Callback {
                 override fun onServiceConnected(name: ComponentName?) {
-                    gm?.register(Glyph.DEVICE_25111p)
+                    val ok = gm?.register(Glyph.DEVICE_25111p)
+                    Log.i(TAG, "service connected, register=$ok")
                     ready = true
                     stateListener?.invoke(true)
                     drain()
@@ -64,9 +68,11 @@ object GlyphLink {
             try {
                 if (asApp) g.setAppMatrixFrame(frame) else g.setMatrixFrame(frame)
             } catch (e: Exception) {
+                Log.w(TAG, "primary push failed (asApp=$asApp)", e)
                 try {
                     g.setMatrixFrame(frame)
-                } catch (_: Exception) {
+                } catch (e2: Exception) {
+                    Log.e(TAG, "fallback push failed", e2)
                 }
             }
         }

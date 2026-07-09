@@ -158,15 +158,18 @@ class PomodoroService : Service() {
     /**
      * Pixels wink out one by one at random positions as time passes.
      * The removal order is shuffled once per phase so already-dark
-     * pixels stay dark.
+     * pixels stay dark. The next pixel due for removal drops to half
+     * brightness first, so it visibly fades before disappearing.
      */
     private fun drawProgress() {
         val fraction = remainingMs().toDouble() / phase.durationMs
         val lit = ceil(fraction * total).toInt().coerceIn(0, total)
         if (lit == lastLit) return
         lastLit = lit
+        val removed = total - lit
         val frame = IntArray(total) { phase.brightness }
-        for (i in 0 until total - lit) frame[drainOrder[i]] = 0
+        for (i in 0 until removed) frame[drainOrder[i]] = 0
+        if (removed < total) frame[drainOrder[removed]] = phase.brightness / 2
         currentFrame = frame
         GlyphLink.pushFrame(this, frame)
     }
