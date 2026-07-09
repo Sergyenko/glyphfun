@@ -95,21 +95,10 @@ class MainActivity : Activity() {
         })
         root.addView(grid)
         root.addView(status)
-        root.addView(buttonRow("Clear" to { stopAnimation(); grid.clear(); turnOff() },
-            "Rain" to { startRain() },
-            "Life" to { startLife() }))
-        root.addView(buttonRow("Random" to { startSparkle() },
-            "Off" to { stopAnimation(); grid.clear(); turnOff() }))
-        PRESETS.chunked(4).forEach { chunk ->
-            val presetRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            chunk.forEach { preset ->
-                presetRow.addView(Button(this).apply {
-                    text = preset.name
-                    textSize = 12f
-                    setOnClickListener { startPreset(preset) }
-                }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-            }
-            root.addView(presetRow)
+        val animations = listOf<Pair<String, () -> Unit>>("Life" to { startLife() }) +
+            PRESETS.map { preset -> preset.name to { startPreset(preset) } }
+        animations.chunked(4).forEach { chunk ->
+            root.addView(buttonRow(*chunk.toTypedArray()))
         }
         customText = EditText(this).apply {
             hint = "Custom running text…"
@@ -117,20 +106,42 @@ class MainActivity : Activity() {
             setHintTextColor(Color.GRAY)
             isSingleLine = true
             imeOptions = EditorInfo.IME_ACTION_GO
-            setOnEditorActionListener { _, _, _ -> runCustomText(); true }
+            setOnEditorActionListener { _, _, _ -> runCustomText(Marquee.PLAIN); true }
         }
         val textRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         textRow.addView(customText,
             LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         textRow.addView(Button(this).apply {
             text = "Run"
-            setOnClickListener { runCustomText(shimmer = false) }
+            setOnClickListener { runCustomText(Marquee.PLAIN) }
         })
         textRow.addView(Button(this).apply {
             text = "✨"
-            setOnClickListener { runCustomText(shimmer = true) }
+            setOnClickListener { runCustomText(Marquee.SHIMMER) }
+        })
+        textRow.addView(Button(this).apply {
+            text = "〰"
+            setOnClickListener { runCustomText(Marquee.WAVY) }
         })
         root.addView(textRow)
+
+        // Foldable controls menu
+        val controlsRow = buttonRow(
+            "Clear" to { stopAnimation(); grid.clear() },
+            "Off" to { stopAnimation(); grid.clear(); turnOff() })
+            .apply { visibility = View.GONE }
+        root.addView(TextView(this).apply {
+            text = "Controls ▸"
+            setTextColor(Color.LTGRAY)
+            gravity = Gravity.CENTER
+            setPadding(0, 24, 0, 8)
+            setOnClickListener {
+                val open = controlsRow.visibility == View.VISIBLE
+                controlsRow.visibility = if (open) View.GONE else View.VISIBLE
+                text = if (open) "Controls ▸" else "Controls ▾"
+            }
+        })
+        root.addView(controlsRow)
         pomodoroHeader = TextView(this).apply {
             text = "Pomodoro"
             setTextColor(Color.LTGRAY)
@@ -242,7 +253,9 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun runCustomText(shimmer: Boolean = false) {
+    private enum class Marquee { PLAIN, SHIMMER, WAVY }
+
+    private fun runCustomText(mode: Marquee) {
         val text = customText.text.toString().trim()
         if (text.isEmpty()) {
             status.text = "Type something first"
@@ -250,7 +263,11 @@ class MainActivity : Activity() {
         }
         (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
             .hideSoftInputFromWindow(customText.windowToken, 0)
-        val frames = if (shimmer) gradientMarqueeFrames(text) else marqueeFrames(text)
+        val frames = when (mode) {
+            Marquee.PLAIN -> marqueeFrames(text)
+            Marquee.SHIMMER -> gradientMarqueeFrames(text)
+            Marquee.WAVY -> wavyMarqueeFrames(text)
+        }
         startAnimation(110) { tick, frame ->
             frames[tick % frames.size].copyInto(frame)
         }
@@ -275,19 +292,6 @@ class MainActivity : Activity() {
         }
         animator = r
         handler.post(r)
-    }
-
-    private fun startRain() {
-        val drops = IntArray(size) { -Random.nextInt(size) }
-        startAnimation(90) { _, frame ->
-            frame.fill(0)
-            for (x in 0 until size) {
-                val y = drops[x]
-                if (y in 0 until size) frame[y * size + x] = 255
-                if (y - 1 in 0 until size) frame[(y - 1) * size + x] = 90
-                drops[x] = if (y > size + 2) -Random.nextInt(6) else y + 1
-            }
-        }
     }
 
     /**
@@ -337,12 +341,4 @@ class MainActivity : Activity() {
     private fun randomSoup(): IntArray =
         IntArray(size * size) { if (Random.nextFloat() < 0.3f) 1 else 0 }
 
-    private fun startSparkle() {
-        startAnimation(80) { _, frame ->
-            for (i in frame.indices) frame[i] = (frame[i] * 0.8).toInt()
-            repeat(4) {
-                frame[Random.nextInt(frame.size)] = 255
-            }
-        }
-    }
 }

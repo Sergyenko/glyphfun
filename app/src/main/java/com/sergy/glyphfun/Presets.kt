@@ -331,36 +331,60 @@ private fun scrollFrames(sprite: List<String>, y: Int): List<IntArray> {
     }
 }
 
-private fun fuckYouFrames(): List<IntArray> =
-    scrollFrames(textBanner("FUCK YOU"), y = 3)
-
 /** Frames for a custom scrolling message (A–Z, space and ♥; rest blank). */
 fun marqueeFrames(text: String): List<IntArray> =
     scrollFrames(textBanner(text.uppercase()), y = 3)
 
 /**
- * 3D marquee: bright letters carry a dim copy offset one pixel
- * down-right — a drop shadow that makes them look raised off the
- * panel — while a shimmer wave rolls over both. Shadow at 40% keeps
- * the letterforms crisp (a glow ring was tried and floods the tight
- * counters of the 5x7 font).
+ * Shimmer + drop shadow: letter pixels ride a travelling brightness
+ * wave, and a 40% copy offset one pixel down-right makes them look
+ * raised off the panel. (A glow-ring emboss was tried and floods the
+ * tight counters of the 5x7 font.)
  */
+private fun embellish(core: IntArray, step: Int): IntArray =
+    IntArray(TOTAL) { i ->
+        val x = i % SIZE
+        val y = i / SIZE
+        val shine = 170 + 85 * sin(2.0 * PI * (x + y + step * 1.5) / 14.0)
+        when {
+            core[i] > 0 -> shine.toInt()
+            x >= 1 && y >= 1 && core[(y - 1) * SIZE + (x - 1)] > 0 -> (shine * 0.4).toInt()
+            else -> 0
+        }
+    }
+
+/** 3D marquee: shimmering, drop-shadowed scrolling text. */
 fun gradientMarqueeFrames(text: String): List<IntArray> {
     val banner = textBanner(text.uppercase(), spacing = 2)
     val width = banner.maxOf { it.length }
     return (0..width + SIZE).map { step ->
         val core = IntArray(TOTAL)
         blit(core, banner, SIZE - step, 3)
-        IntArray(TOTAL) { i ->
-            val x = i % SIZE
-            val y = i / SIZE
-            val shine = 170 + 85 * sin(2.0 * PI * (x + y + step * 1.5) / 14.0)
-            when {
-                core[i] > 0 -> shine.toInt()
-                x >= 1 && y >= 1 && core[(y - 1) * SIZE + (x - 1)] > 0 -> (shine * 0.4).toInt()
-                else -> 0
+        embellish(core, step)
+    }
+}
+
+/**
+ * Wavy 3D marquee: every column of the text rides a vertical sine
+ * wave while it scrolls, with the same shimmer and drop shadow.
+ */
+fun wavyMarqueeFrames(text: String): List<IntArray> {
+    val banner = textBanner(text.uppercase(), spacing = 2)
+    val width = banner.maxOf { it.length }
+    return (0..width + SIZE).map { step ->
+        val core = IntArray(TOTAL)
+        for (x in 0 until SIZE) {
+            val col = x - (SIZE - step)
+            if (col !in 0 until width) continue
+            val dy = (1.6 * sin(2.0 * PI * (x + step * 0.6) / 11.0)).toInt()
+            for (r in 0 until 7) {
+                if (banner[r].getOrNull(col) == 'X') {
+                    val py = 3 + r + dy
+                    if (py in 0 until SIZE) core[py * SIZE + x] = 255
+                }
             }
         }
+        embellish(core, step)
     }
 }
 
@@ -388,7 +412,5 @@ private fun kaleidoscopeFrames(): List<IntArray> {
 
 val PRESETS = listOf(
     Preset("67", sixSevenFrames(), frameMs = 250),
-    Preset("FU", fuckYouFrames(), frameMs = 110),
-    Preset("BUTT", scrollFrames(textBanner("NICE BUTT ♥"), y = 3), frameMs = 110),
     Preset("Kaleido", kaleidoscopeFrames(), frameMs = 90),
 )
