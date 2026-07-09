@@ -57,6 +57,10 @@ object PomodoroLog {
             Entry(System.currentTimeMillis(), reason, null, completed = false, note = note))
     }
 
+    fun delete(context: Context, ts: Long) {
+        save(context, entries(context).filterNot { it.ts == ts })
+    }
+
     fun rate(context: Context, ts: Long, rating: String) {
         save(context, entries(context).map {
             if (it.ts == ts) it.copy(rating = rating) else it

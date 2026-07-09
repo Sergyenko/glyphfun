@@ -31,9 +31,7 @@ class PomodoroService : Service() {
 
     enum class Phase(val label: String, val durationMs: Long, val brightness: Int) {
         FOCUS("Focus", 25 * 60_000L, 255),
-        BREAK("Break", 5 * 60_000L, 110);
-
-        fun next() = if (this == FOCUS) BREAK else FOCUS
+        BREAK("Break", 5 * 60_000L, 110)
     }
 
     companion object {
@@ -150,17 +148,21 @@ class PomodoroService : Service() {
 
     private fun onPhaseEnd() {
         if (phase == Phase.FOCUS) {
+            // Focus done: log it and roll into the break.
             PomodoroLog.add(this, currentReason)
             beep()
+            vibrate(longArrayOf(0, 350, 150, 350, 150, 350))
+            phase = Phase.BREAK
+            endsAt = SystemClock.elapsedRealtime() + phase.durationMs
+            lastNotifiedMinute = -1
+            resetField()
+            acquireWakeLock(phase.durationMs)
+            blinkTicksLeft = 6
+        } else {
+            // Break done: one full cycle — stop instead of looping.
+            vibrate(longArrayOf(0, 120, 80, 120))
+            stop()
         }
-        vibrate(if (phase == Phase.FOCUS) longArrayOf(0, 350, 150, 350, 150, 350)
-                else longArrayOf(0, 120, 80, 120))
-        phase = phase.next()
-        endsAt = SystemClock.elapsedRealtime() + phase.durationMs
-        lastNotifiedMinute = -1
-        resetField()
-        acquireWakeLock(phase.durationMs)
-        blinkTicksLeft = 6
     }
 
     /** Alternates full/empty frames a few times to mark a phase change. */

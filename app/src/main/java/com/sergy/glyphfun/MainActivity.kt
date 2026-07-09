@@ -313,6 +313,16 @@ class MainActivity : Activity() {
                         })
                     }
             }
+            row.addView(TextView(this).apply {
+                text = "✕"
+                textSize = 18f
+                setTextColor(Color.GRAY)
+                setPadding(28, 8, 8, 8)
+                setOnClickListener {
+                    PomodoroLog.delete(this@MainActivity, entry.ts)
+                    rebuildStats()
+                }
+            })
             statsContent.addView(row)
         }
     }
