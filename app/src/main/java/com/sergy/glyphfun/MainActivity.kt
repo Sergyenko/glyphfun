@@ -6,6 +6,7 @@ import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.Icon
 import android.os.Bundle
 import android.os.Handler
@@ -106,44 +107,22 @@ class MainActivity : Activity() {
             setHintTextColor(Color.GRAY)
             isSingleLine = true
             imeOptions = EditorInfo.IME_ACTION_GO
-            setOnEditorActionListener { _, _, _ -> runCustomText(Marquee.PLAIN); true }
+            setOnEditorActionListener { _, _, _ -> runCustomText(shimmer = false); true }
         }
         val textRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         textRow.addView(customText,
             LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         textRow.addView(Button(this).apply {
             text = "Run"
-            setOnClickListener { runCustomText(Marquee.PLAIN) }
+            setOnClickListener { runCustomText(shimmer = false) }
         })
         textRow.addView(Button(this).apply {
             text = "✨"
-            setOnClickListener { runCustomText(Marquee.SHIMMER) }
-        })
-        textRow.addView(Button(this).apply {
-            text = "〰"
-            setOnClickListener { runCustomText(Marquee.WAVY) }
+            setOnClickListener { runCustomText(shimmer = true) }
         })
         root.addView(textRow)
-
-        // Foldable controls menu
-        val controlsRow = buttonRow(
-            "Clear" to { stopAnimation(); grid.clear() },
-            "Off" to { stopAnimation(); grid.clear(); turnOff() })
-            .apply { visibility = View.GONE }
-        root.addView(TextView(this).apply {
-            text = "Controls ▸"
-            setTextColor(Color.LTGRAY)
-            gravity = Gravity.CENTER
-            setPadding(0, 24, 0, 8)
-            setOnClickListener {
-                val open = controlsRow.visibility == View.VISIBLE
-                controlsRow.visibility = if (open) View.GONE else View.VISIBLE
-                text = if (open) "Controls ▸" else "Controls ▾"
-            }
-        })
-        root.addView(controlsRow)
         pomodoroHeader = TextView(this).apply {
-            text = "Pomodoro"
+            text = "🍅 Pomodoro"
             setTextColor(Color.LTGRAY)
             gravity = Gravity.CENTER
             setPadding(0, 24, 0, 8)
@@ -159,8 +138,45 @@ class MainActivity : Activity() {
             "▶ Focus" to { pomodoro(PomodoroService.ACTION_START) },
             "■ Stop" to { pomodoro(PomodoroService.ACTION_STOP) },
             "Add tile" to { requestPomodoroTile() }))
+
+        // Spacer pushes the control icons to the very bottom.
+        root.addView(View(this),
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        val density = resources.displayMetrics.density
+        val buttonSize = (56 * density).toInt()
+        val buttonMargin = (20 * density).toInt()
+        val controls = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        listOf<Pair<String, () -> Unit>>(
+            "🧹" to { stopAnimation(); grid.clear() },
+            "💤" to { stopAnimation(); grid.clear(); turnOff() }
+        ).forEach { (symbol, action) ->
+            controls.addView(roundButton(symbol, action),
+                LinearLayout.LayoutParams(buttonSize, buttonSize).apply {
+                    marginStart = buttonMargin
+                    marginEnd = buttonMargin
+                })
+        }
+        root.addView(controls, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT))
         setContentView(root)
     }
+
+    private fun roundButton(symbol: String, action: () -> Unit): TextView =
+        TextView(this).apply {
+            text = symbol
+            textSize = 22f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.rgb(45, 45, 45))
+            }
+            setOnClickListener { action() }
+        }
 
     private fun buttonRow(vararg items: Pair<String, () -> Unit>): LinearLayout {
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
@@ -210,7 +226,7 @@ class MainActivity : Activity() {
                 pomodoroBar.visibility = View.VISIBLE
                 pomodoroBar.progress = (PomodoroService.progressFraction() * 1000).toInt()
                 pomodoroHeader.text =
-                    "Pomodoro — ${PomodoroService.phase.label} · ${PomodoroService.remainingText()} left"
+                    "🍅 ${PomodoroService.phase.label} · ${PomodoroService.remainingText()} left"
                 // Mirror the dissolving pixel field onto the on-screen grid,
                 // unless a local animation is using it.
                 if (animator == null) {
@@ -218,7 +234,7 @@ class MainActivity : Activity() {
                 }
             } else {
                 pomodoroBar.visibility = View.GONE
-                pomodoroHeader.text = "Pomodoro"
+                pomodoroHeader.text = "🍅 Pomodoro"
             }
             handler.postDelayed(this, 500)
         }
@@ -253,9 +269,7 @@ class MainActivity : Activity() {
         }
     }
 
-    private enum class Marquee { PLAIN, SHIMMER, WAVY }
-
-    private fun runCustomText(mode: Marquee) {
+    private fun runCustomText(shimmer: Boolean) {
         val text = customText.text.toString().trim()
         if (text.isEmpty()) {
             status.text = "Type something first"
@@ -263,11 +277,7 @@ class MainActivity : Activity() {
         }
         (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
             .hideSoftInputFromWindow(customText.windowToken, 0)
-        val frames = when (mode) {
-            Marquee.PLAIN -> marqueeFrames(text)
-            Marquee.SHIMMER -> gradientMarqueeFrames(text)
-            Marquee.WAVY -> wavyMarqueeFrames(text)
-        }
+        val frames = if (shimmer) gradientMarqueeFrames(text) else marqueeFrames(text)
         startAnimation(110) { tick, frame ->
             frames[tick % frames.size].copyInto(frame)
         }

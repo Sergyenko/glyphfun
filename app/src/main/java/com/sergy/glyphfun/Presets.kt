@@ -364,29 +364,6 @@ fun gradientMarqueeFrames(text: String): List<IntArray> {
     }
 }
 
-/**
- * Wavy 3D marquee: every column of the text rides a vertical sine
- * wave while it scrolls, with the same shimmer and drop shadow.
- */
-fun wavyMarqueeFrames(text: String): List<IntArray> {
-    val banner = textBanner(text.uppercase(), spacing = 2)
-    val width = banner.maxOf { it.length }
-    return (0..width + SIZE).map { step ->
-        val core = IntArray(TOTAL)
-        for (x in 0 until SIZE) {
-            val col = x - (SIZE - step)
-            if (col !in 0 until width) continue
-            val dy = (1.6 * sin(2.0 * PI * (x + step * 0.6) / 11.0)).toInt()
-            for (r in 0 until 7) {
-                if (banner[r].getOrNull(col) == 'X') {
-                    val py = 3 + r + dy
-                    if (py in 0 until SIZE) core[py * SIZE + x] = 255
-                }
-            }
-        }
-        embellish(core, step)
-    }
-}
 
 /**
  * Kaleidoscope: two brightness waves interfere while their direction
