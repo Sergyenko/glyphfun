@@ -47,6 +47,11 @@ class PomodoroService : Service() {
         @Volatile
         private var endsAt = 0L
 
+        /** Last frame pushed to the matrix, for mirroring in the app UI. */
+        @Volatile
+        var currentFrame: IntArray? = null
+            private set
+
         fun remainingMs(): Long =
             if (!running) 0L else (endsAt - SystemClock.elapsedRealtime()).coerceAtLeast(0L)
 
@@ -105,6 +110,7 @@ class PomodoroService : Service() {
 
     private fun stop() {
         running = false
+        currentFrame = null
         handler.removeCallbacksAndMessages(null)
         wakeLock?.let { if (it.isHeld) it.release() }
         GlyphLink.closeApp(this)
@@ -144,6 +150,7 @@ class PomodoroService : Service() {
     private fun blinkTick() {
         val on = blinkTicksLeft % 2 == 0
         val frame = IntArray(total) { if (on) phase.brightness else 0 }
+        currentFrame = frame
         GlyphLink.pushFrame(this, frame)
         blinkTicksLeft--
     }
@@ -160,6 +167,7 @@ class PomodoroService : Service() {
         lastLit = lit
         val frame = IntArray(total) { phase.brightness }
         for (i in 0 until total - lit) frame[drainOrder[i]] = 0
+        currentFrame = frame
         GlyphLink.pushFrame(this, frame)
     }
 

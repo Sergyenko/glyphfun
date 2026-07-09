@@ -3,8 +3,5 @@
     <string name="app_name">GlyphFun</string>
     <string name="toy_name">Glyph Clock</string>
     <string name="toy_summary">Digital clock on the Glyph Matrix (AOD)</string>
-    <string name="tracker_toy_name">Day Tracker</string>
-    <string name="tracker_toy_summary">Your day in pixels — one per happy moment</string>
-    <string name="tile_label">Commit pixel</string>
     <string name="pomodoro_tile_label">Pomodoro</string>
 </resources>

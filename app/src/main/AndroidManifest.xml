@@ -42,27 +42,6 @@
                 android:name="com.nothing.glyph.toy.aod_support"
                 android:value="1" />
         </service>
-        <!-- Glyph Toy: day-tracker constellation on the AOD -->
-        <service
-            android:name=".DayTrackerToyService"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="com.nothing.glyph.TOY" />
-            </intent-filter>
-            <meta-data
-                android:name="com.nothing.glyph.toy.name"
-                android:resource="@string/tracker_toy_name" />
-            <meta-data
-                android:name="com.nothing.glyph.toy.image"
-                android:resource="@drawable/ic_glyph" />
-            <meta-data
-                android:name="com.nothing.glyph.toy.summary"
-                android:resource="@string/tracker_toy_summary" />
-            <meta-data
-                android:name="com.nothing.glyph.toy.aod_support"
-                android:value="1" />
-        </service>
-
         <!-- Pomodoro timer rendered on the matrix as a draining hourglass -->
         <service
             android:name=".PomodoroService"
@@ -85,16 +64,5 @@
             </intent-filter>
         </service>
 
-        <!-- Quick Settings tile: commit one pixel to the day tracker -->
-        <service
-            android:name=".CommitTileService"
-            android:exported="true"
-            android:icon="@drawable/ic_tile"
-            android:label="@string/tile_label"
-            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
-            <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE" />
-            </intent-filter>
-        </service>
     </application>
 </manifest>

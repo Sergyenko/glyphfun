@@ -1,7 +1,6 @@
 package com.sergy.glyphfun
 
 import android.app.Activity
-import android.app.AlertDialog
 import android.app.StatusBarManager
 import android.content.ComponentName
 import android.content.Intent
@@ -15,11 +14,8 @@ import android.view.Gravity
 import android.view.View
 import android.widget.Button
 import android.widget.ProgressBar
-import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.TextView
-import kotlin.math.cos
-import kotlin.math.sin
 import kotlin.random.Random
 
 class MainActivity : Activity() {
@@ -27,7 +23,6 @@ class MainActivity : Activity() {
     private val size = GlyphGridView.SIZE
     private lateinit var grid: GlyphGridView
     private lateinit var status: TextView
-    private lateinit var trackerLabel: TextView
     private lateinit var pomodoroHeader: TextView
     private lateinit var pomodoroBar: ProgressBar
 
@@ -89,40 +84,9 @@ class MainActivity : Activity() {
         root.addView(status)
         root.addView(buttonRow("Clear" to { stopAnimation(); grid.clear() },
             "Rain" to { startRain() },
-            "Spiral" to { startSpiral() }))
-        root.addView(buttonRow("Life" to { startLife() },
-            "Random" to { startSparkle() },
-            "Off" to { stopAnimation(); grid.clear(); turnOff() },
-            "Toys" to { openToyManager() }))
-        root.addView(TextView(this).apply {
-            text = "Presets"
-            setTextColor(Color.LTGRAY)
-            gravity = Gravity.CENTER
-            setPadding(0, 24, 0, 8)
-        })
-        val presetRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        PRESETS.forEach { preset ->
-            presetRow.addView(Button(this).apply {
-                text = preset.name
-                setOnClickListener { startPreset(preset) }
-            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT))
-        }
-        root.addView(HorizontalScrollView(this).apply {
-            isHorizontalScrollBarEnabled = false
-            addView(presetRow)
-        })
-        trackerLabel = TextView(this).apply {
-            setTextColor(Color.LTGRAY)
-            gravity = Gravity.CENTER
-            setPadding(0, 24, 0, 8)
-        }
-        root.addView(trackerLabel)
-        root.addView(buttonRow(
-            "Show" to { showTrackerDay() },
-            "Commit ✦" to { commitPixel() },
-            "Add tile" to { requestTile() },
-            "Reset" to { confirmReset() }))
+            "Life" to { startLife() }))
+        root.addView(buttonRow("Random" to { startSparkle() },
+            "Off" to { stopAnimation(); grid.clear(); turnOff() }))
         pomodoroHeader = TextView(this).apply {
             text = "Pomodoro"
             setTextColor(Color.LTGRAY)
@@ -141,7 +105,6 @@ class MainActivity : Activity() {
             "■ Stop" to { pomodoro(PomodoroService.ACTION_STOP) },
             "Add tile" to { requestPomodoroTile() }))
         setContentView(root)
-        refreshTrackerLabel()
     }
 
     private fun buttonRow(vararg items: Pair<String, () -> Unit>): LinearLayout {
@@ -162,57 +125,6 @@ class MainActivity : Activity() {
     private fun pushFrame(frame: IntArray) = GlyphLink.pushFrame(this, frame)
 
     private fun turnOff() = GlyphLink.turnOff(this)
-
-    private fun openToyManager() {
-        try {
-            startActivity(Intent().setComponent(ComponentName(
-                "com.nothing.thirdparty",
-                "com.nothing.thirdparty.matrix.toys.manager.ToysManagerActivity")))
-        } catch (e: Exception) {
-            status.text = "Toy manager not available on this system version"
-        }
-    }
-
-    // --- Day tracker -----------------------------------------------------
-
-    private fun refreshTrackerLabel() {
-        trackerLabel.text = "Day tracker — ${DayTracker.pixels(this).size} ✦ today"
-    }
-
-    private fun showTrackerDay() {
-        stopAnimation()
-        val frame = DayTracker.frame(this)
-        grid.setPixels(frame)
-        pushFrame(frame)
-        refreshTrackerLabel()
-    }
-
-    private fun commitPixel() {
-        DayTracker.commit(this)
-        MatrixFlasher.vibrate(this)
-        showTrackerDay()
-    }
-
-    private fun confirmReset() {
-        val count = DayTracker.pixels(this).size
-        if (count == 0) {
-            status.text = "Nothing to reset — no pixels today"
-            return
-        }
-        AlertDialog.Builder(this)
-            .setTitle("Reset day tracker?")
-            .setMessage("This deletes all $count pixels committed today. There is no undo.")
-            .setPositiveButton("Reset") { _, _ ->
-                DayTracker.clear(this)
-                showTrackerDay()
-                status.text = "Day tracker reset"
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-
-    private fun requestTile() =
-        requestTile(CommitTileService::class.java, R.string.tile_label, R.drawable.ic_tile)
 
     private fun requestPomodoroTile() =
         requestTile(PomodoroTileService::class.java, R.string.pomodoro_tile_label, R.drawable.ic_pomodoro)
@@ -244,6 +156,11 @@ class MainActivity : Activity() {
                 pomodoroBar.progress = (PomodoroService.progressFraction() * 1000).toInt()
                 pomodoroHeader.text =
                     "Pomodoro — ${PomodoroService.phase.label} · ${PomodoroService.remainingText()} left"
+                // Mirror the dissolving pixel field onto the on-screen grid,
+                // unless a local animation is using it.
+                if (animator == null) {
+                    PomodoroService.currentFrame?.let { grid.setPixels(it) }
+                }
             } else {
                 pomodoroBar.visibility = View.GONE
                 pomodoroHeader.text = "Pomodoro"
@@ -255,7 +172,6 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         handler.post(pomodoroUpdater)
-        refreshTrackerLabel()
     }
 
     override fun onPause() {
@@ -275,12 +191,6 @@ class MainActivity : Activity() {
     }
 
     // --- Animations ----------------------------------------------------
-
-    private fun startPreset(preset: Preset) {
-        startAnimation(preset.frameMs) { tick, frame ->
-            preset.frames[tick % preset.frames.size].copyInto(frame)
-        }
-    }
 
     private fun stopAnimation() {
         animator?.let { handler.removeCallbacks(it) }
@@ -312,19 +222,6 @@ class MainActivity : Activity() {
                 if (y in 0 until size) frame[y * size + x] = 255
                 if (y - 1 in 0 until size) frame[(y - 1) * size + x] = 90
                 drops[x] = if (y > size + 2) -Random.nextInt(6) else y + 1
-            }
-        }
-    }
-
-    private fun startSpiral() {
-        val c = (size - 1) / 2.0
-        startAnimation(60) { tick, frame ->
-            for (i in frame.indices) frame[i] = (frame[i] * 0.72).toInt()
-            val angle = tick * 0.35
-            for (r in 0..6) {
-                val x = (c + r * cos(angle + r * 0.5)).toInt()
-                val y = (c + r * sin(angle + r * 0.5)).toInt()
-                if (x in 0 until size && y in 0 until size) frame[y * size + x] = 255
             }
         }
     }
