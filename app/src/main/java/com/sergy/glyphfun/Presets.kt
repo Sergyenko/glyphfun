@@ -62,23 +62,23 @@ private fun sixSevenFrames(): List<IntArray> {
 // --- "FUCK YOU" + middle finger ------------------------------------------
 
 private val FONT = mapOf(
-    'F' to rows("""
-        XXXXX
-        X....
-        X....
-        XXXX.
-        X....
-        X....
-        X....
-    """),
-    'U' to rows("""
-        X...X
-        X...X
-        X...X
-        X...X
-        X...X
-        X...X
+    'A' to rows("""
         .XXX.
+        X...X
+        X...X
+        XXXXX
+        X...X
+        X...X
+        X...X
+    """),
+    'B' to rows("""
+        XXXX.
+        X...X
+        X...X
+        XXXX.
+        X...X
+        X...X
+        XXXX.
     """),
     'C' to rows("""
         .XXXX
@@ -89,6 +89,69 @@ private val FONT = mapOf(
         X....
         .XXXX
     """),
+    'D' to rows("""
+        XXXX.
+        X...X
+        X...X
+        X...X
+        X...X
+        X...X
+        XXXX.
+    """),
+    'E' to rows("""
+        XXXXX
+        X....
+        X....
+        XXXX.
+        X....
+        X....
+        XXXXX
+    """),
+    'F' to rows("""
+        XXXXX
+        X....
+        X....
+        XXXX.
+        X....
+        X....
+        X....
+    """),
+    'G' to rows("""
+        .XXXX
+        X....
+        X....
+        X.XXX
+        X...X
+        X...X
+        .XXX.
+    """),
+    'H' to rows("""
+        X...X
+        X...X
+        X...X
+        XXXXX
+        X...X
+        X...X
+        X...X
+    """),
+    'I' to rows("""
+        XXXXX
+        ..X..
+        ..X..
+        ..X..
+        ..X..
+        ..X..
+        XXXXX
+    """),
+    'J' to rows("""
+        ..XXX
+        ...X.
+        ...X.
+        ...X.
+        ...X.
+        X..X.
+        .XX..
+    """),
     'K' to rows("""
         X...X
         X..X.
@@ -96,6 +159,123 @@ private val FONT = mapOf(
         XX...
         X.X..
         X..X.
+        X...X
+    """),
+    'L' to rows("""
+        X....
+        X....
+        X....
+        X....
+        X....
+        X....
+        XXXXX
+    """),
+    'M' to rows("""
+        X...X
+        XX.XX
+        X.X.X
+        X.X.X
+        X...X
+        X...X
+        X...X
+    """),
+    'N' to rows("""
+        X...X
+        XX..X
+        X.X.X
+        X..XX
+        X...X
+        X...X
+        X...X
+    """),
+    'O' to rows("""
+        .XXX.
+        X...X
+        X...X
+        X...X
+        X...X
+        X...X
+        .XXX.
+    """),
+    'P' to rows("""
+        XXXX.
+        X...X
+        X...X
+        XXXX.
+        X....
+        X....
+        X....
+    """),
+    'Q' to rows("""
+        .XXX.
+        X...X
+        X...X
+        X...X
+        X.X.X
+        X..X.
+        .XX.X
+    """),
+    'R' to rows("""
+        XXXX.
+        X...X
+        X...X
+        XXXX.
+        X.X..
+        X..X.
+        X...X
+    """),
+    'S' to rows("""
+        .XXXX
+        X....
+        X....
+        .XXX.
+        ....X
+        ....X
+        XXXX.
+    """),
+    'T' to rows("""
+        XXXXX
+        ..X..
+        ..X..
+        ..X..
+        ..X..
+        ..X..
+        ..X..
+    """),
+    'U' to rows("""
+        X...X
+        X...X
+        X...X
+        X...X
+        X...X
+        X...X
+        .XXX.
+    """),
+    'V' to rows("""
+        X...X
+        X...X
+        X...X
+        X...X
+        X...X
+        .X.X.
+        ..X..
+    """),
+    'W' to rows("""
+        X...X
+        X...X
+        X...X
+        X.X.X
+        X.X.X
+        XX.XX
+        X...X
+    """),
+    'X' to rows("""
+        X...X
+        X...X
+        .X.X.
+        ..X..
+        .X.X.
+        X...X
         X...X
     """),
     'Y' to rows("""
@@ -107,14 +287,23 @@ private val FONT = mapOf(
         ..X..
         ..X..
     """),
-    'O' to rows("""
+    'Z' to rows("""
+        XXXXX
+        ....X
+        ...X.
+        ..X..
+        .X...
+        X....
+        XXXXX
+    """),
+    '♥' to rows("""
+        .X.X.
+        XXXXX
+        XXXXX
+        XXXXX
         .XXX.
-        X...X
-        X...X
-        X...X
-        X...X
-        X...X
-        .XXX.
+        ..X..
+        .....
     """),
     ' ' to List(7) { "..." },
 )
@@ -143,4 +332,5 @@ private fun fuckYouFrames(): List<IntArray> =
 val PRESETS = listOf(
     Preset("67", sixSevenFrames(), frameMs = 250),
     Preset("FU", fuckYouFrames(), frameMs = 110),
+    Preset("BUTT", scrollFrames(textBanner("NICE BUTT ♥"), y = 3), frameMs = 110),
 )
