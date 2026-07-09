@@ -4,6 +4,9 @@ package com.sergy.glyphfun
  * Animated presets for the Glyph Matrix, composed from string-art
  * sprites ('X' bright, 'o' dim, '.' transparent) blitted at offsets.
  */
+import kotlin.math.PI
+import kotlin.math.sin
+
 data class Preset(val name: String, val frames: List<IntArray>, val frameMs: Long)
 
 private const val SIZE = GlyphGridView.SIZE
@@ -347,9 +350,26 @@ private fun gradientFrame(): IntArray {
     return frame
 }
 
+/**
+ * Pixels stay put while a smooth brightness wave sweeps diagonally
+ * across the matrix, looping seamlessly.
+ */
+private fun movingGradientFrames(): List<IntArray> {
+    val period = SIZE * 2
+    return (0 until period).map { t ->
+        IntArray(TOTAL) { i ->
+            val x = i % SIZE
+            val y = i / SIZE
+            val phase = 2.0 * PI * (x + y - t) / period
+            (132.5 + 122.5 * sin(phase)).toInt()
+        }
+    }
+}
+
 val PRESETS = listOf(
     Preset("67", sixSevenFrames(), frameMs = 250),
     Preset("FU", fuckYouFrames(), frameMs = 110),
     Preset("BUTT", scrollFrames(textBanner("NICE BUTT ♥"), y = 3), frameMs = 110),
     Preset("Grad", listOf(gradientFrame()), frameMs = 1000),
+    Preset("Wave", movingGradientFrames(), frameMs = 90),
 )
