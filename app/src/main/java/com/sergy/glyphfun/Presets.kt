@@ -376,19 +376,36 @@ private fun kaleidoscopeFrames(): List<IntArray> {
 
 // --- Anti-aliased smiley ---------------------------------------------------
 
+/** Supersamples a continuous coverage function into a 13x13 frame. */
+private fun renderShape(ss: Int = 8, sample: (Double, Double) -> Double): IntArray =
+    IntArray(TOTAL) { i ->
+        val px = i % SIZE
+        val py = i / SIZE
+        var acc = 0.0
+        for (sy in 0 until ss) {
+            for (sx in 0 until ss) {
+                acc += sample(px + (sx + 0.5) / ss, py + (sy + 0.5) / ss)
+            }
+        }
+        (acc / (ss * ss) * 255).toInt()
+    }
+
 /**
  * Coverage of the smiley at a continuous point: a full-width lit disc
- * with dark eyes and a smile arc. Eyes closed replaces the eyes with
- * thin lids for the blink frame.
+ * with dark eyes and a smile arc. A closed eye becomes a thin lid line.
  */
-private fun smileySample(x: Double, y: Double, closed: Boolean): Double {
+private fun smileySample(x: Double, y: Double, leftClosed: Boolean, rightClosed: Boolean): Double {
     val r = hypot(x - 6.5, y - 6.5)
     if (r > 6.5) return 0.0
     if (r > 5.9) return (6.5 - r) / 0.6            // soft face edge
-    if (closed) {
-        if (y in 4.2..5.4 && (x in 3.0..5.4 || x in 7.6..10.0)) return 0.0
+    if (leftClosed) {
+        if (y in 4.2..5.4 && x in 3.0..5.4) return 0.0
     } else {
         if (hypot((x - 4.2) / 0.9, (y - 4.6) / 1.3) < 1.0) return 0.0
+    }
+    if (rightClosed) {
+        if (y in 4.2..5.4 && x in 7.6..10.0) return 0.0
+    } else {
         if (hypot((x - 8.8) / 0.9, (y - 4.6) / 1.3) < 1.0) return 0.0
     }
     val mouth = hypot(x - 6.5, y - 4.6)
@@ -396,26 +413,38 @@ private fun smileySample(x: Double, y: Double, closed: Boolean): Double {
     return 1.0
 }
 
-private fun smileyFrame(closed: Boolean): IntArray {
-    val ss = 8
-    return IntArray(TOTAL) { i ->
-        val px = i % SIZE
-        val py = i / SIZE
-        var acc = 0.0
-        for (sy in 0 until ss) {
-            for (sx in 0 until ss) {
-                acc += smileySample(px + (sx + 0.5) / ss, py + (sy + 0.5) / ss, closed)
-            }
-        }
-        (acc / (ss * ss) * 255).toInt()
-    }
-}
+private fun smileyFrame(leftClosed: Boolean, rightClosed: Boolean): IntArray =
+    renderShape { x, y -> smileySample(x, y, leftClosed, rightClosed) }
 
 /** Mostly-open frames with a quick two-frame blink at the end. */
 private fun smileyFrames(): List<IntArray> {
-    val open = smileyFrame(closed = false)
-    val blink = smileyFrame(closed = true)
+    val open = smileyFrame(leftClosed = false, rightClosed = false)
+    val blink = smileyFrame(leftClosed = true, rightClosed = true)
     return List(26) { open } + listOf(blink, blink)
+}
+
+/** Same face, but one eye winks now and then. */
+private fun winkFrames(): List<IntArray> {
+    val open = smileyFrame(leftClosed = false, rightClosed = false)
+    val wink = smileyFrame(leftClosed = false, rightClosed = true)
+    return List(20) { open } + listOf(wink, wink, wink)
+}
+
+// --- Anti-aliased beating heart --------------------------------------------
+
+/** Classic implicit heart curve (x²+y²−1)³ − x²y³ ≤ 0, scaled to the matrix. */
+private fun heartSample(x: Double, y: Double, scale: Double): Double {
+    val nx = (x - 6.5) / (5.6 * scale)
+    val ny = (6.7 - y) / (5.2 * scale) + 0.15
+    val a = nx * nx + ny * ny - 1.0
+    return if (a * a * a - nx * nx * ny * ny * ny <= 0.0) 1.0 else 0.0
+}
+
+/** Lub-dub: two quick contractions, then rest. */
+private fun heartFrames(): List<IntArray> {
+    val big = renderShape { x, y -> heartSample(x, y, 1.0) }
+    val small = renderShape { x, y -> heartSample(x, y, 0.85) }
+    return List(12) { big } + listOf(small, small, big, big, small, small)
 }
 
 val PRESETS = listOf(
@@ -425,4 +454,6 @@ val PRESETS = listOf(
     Preset("Grad", listOf(gradientFrame()), frameMs = 1000),
     Preset("Kaleido", kaleidoscopeFrames(), frameMs = 90),
     Preset("🙂", smileyFrames(), frameMs = 120),
+    Preset("😉", winkFrames(), frameMs = 120),
+    Preset("❤", heartFrames(), frameMs = 110),
 )

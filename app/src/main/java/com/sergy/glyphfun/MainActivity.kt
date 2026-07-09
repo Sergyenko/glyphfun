@@ -100,15 +100,17 @@ class MainActivity : Activity() {
             "Life" to { startLife() }))
         root.addView(buttonRow("Random" to { startSparkle() },
             "Off" to { stopAnimation(); grid.clear(); turnOff() }))
-        val presetRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        PRESETS.forEach { preset ->
-            presetRow.addView(Button(this).apply {
-                text = preset.name
-                textSize = 12f
-                setOnClickListener { startPreset(preset) }
-            }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        PRESETS.chunked(4).forEach { chunk ->
+            val presetRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            chunk.forEach { preset ->
+                presetRow.addView(Button(this).apply {
+                    text = preset.name
+                    textSize = 12f
+                    setOnClickListener { startPreset(preset) }
+                }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            }
+            root.addView(presetRow)
         }
-        root.addView(presetRow)
         customText = EditText(this).apply {
             hint = "Custom running text…"
             setTextColor(Color.WHITE)
