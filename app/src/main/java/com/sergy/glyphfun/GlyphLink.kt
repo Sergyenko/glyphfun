@@ -60,22 +60,41 @@ object GlyphLink {
         val actions = pending.toList()
         pending.clear()
         actions.forEach { it(g) }
+        latestFrame?.let { doPush(g, it, latestAsApp) }
+        latestFrame = null
     }
 
-    /** asApp = true uses the app-control channel, false the toy channel. */
-    fun pushFrame(context: Context, frame: IntArray, asApp: Boolean = true) =
-        run(context) { g ->
-            try {
-                if (asApp) g.setAppMatrixFrame(frame) else g.setMatrixFrame(frame)
-            } catch (e: Exception) {
-                Log.w(TAG, "primary push failed (asApp=$asApp)", e)
-                try {
-                    g.setMatrixFrame(frame)
-                } catch (e2: Exception) {
-                    Log.e(TAG, "fallback push failed", e2)
-                }
-            }
+    // While the service is (re)connecting, frames collapse into a single
+    // latest-wins slot: replaying a backlog of stale animation frames on
+    // reconnect would interleave old and new content on the matrix.
+    private var latestFrame: IntArray? = null
+    private var latestAsApp = true
+
+    /**
+     * asApp = true uses the app-control channel, false the toy channel.
+     * A frame never switches channels: the app channel retains its last
+     * frame until closeAppMatrix, so a one-off fallback would leave two
+     * channels displaying at once.
+     */
+    @Synchronized
+    fun pushFrame(context: Context, frame: IntArray, asApp: Boolean = true) {
+        val g = gm
+        if (ready && g != null) {
+            doPush(g, frame, asApp)
+        } else {
+            latestFrame = frame
+            latestAsApp = asApp
+            run(context) { }
         }
+    }
+
+    private fun doPush(g: GlyphMatrixManager, frame: IntArray, asApp: Boolean) {
+        try {
+            if (asApp) g.setAppMatrixFrame(frame) else g.setMatrixFrame(frame)
+        } catch (e: Exception) {
+            Log.w(TAG, "push failed (asApp=$asApp)", e)
+        }
+    }
 
     fun closeApp(context: Context) = run(context) { g ->
         try {

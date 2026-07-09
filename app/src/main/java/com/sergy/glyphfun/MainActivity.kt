@@ -92,7 +92,7 @@ class MainActivity : Activity() {
         })
         root.addView(grid)
         root.addView(status)
-        root.addView(buttonRow("Clear" to { stopAnimation(); grid.clear() },
+        root.addView(buttonRow("Clear" to { stopAnimation(); grid.clear(); turnOff() },
             "Rain" to { startRain() },
             "Life" to { startLife() }))
         root.addView(buttonRow("Random" to { startSparkle() },
