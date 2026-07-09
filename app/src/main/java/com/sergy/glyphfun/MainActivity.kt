@@ -12,6 +12,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
 import android.view.View
+import android.view.WindowInsets
 import android.widget.Button
 import android.widget.ProgressBar
 import android.widget.LinearLayout
@@ -72,6 +73,14 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.BLACK)
             setPadding(32, 64, 32, 32)
+            // Edge-to-edge (targetSdk 35): keep content clear of the
+            // status bar / camera cutout and the gesture bar.
+            setOnApplyWindowInsetsListener { v, insets ->
+                val bars = insets.getInsets(
+                    WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout())
+                v.setPadding(32, bars.top + 32, 32, bars.bottom + 32)
+                insets
+            }
         }
         root.addView(TextView(this).apply {
             text = "GlyphFun — draw on the matrix"
