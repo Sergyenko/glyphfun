@@ -338,6 +338,29 @@ fun marqueeFrames(text: String): List<IntArray> =
     scrollFrames(textBanner(text.uppercase()), y = 3)
 
 /**
+ * Marquee variant where a diagonal brightness wave travels through the
+ * letters while they scroll, so the text shimmers instead of being
+ * flat white. Letter pixels swing between 85 and 255.
+ */
+fun gradientMarqueeFrames(text: String): List<IntArray> {
+    val banner = textBanner(text.uppercase())
+    val width = banner.maxOf { it.length }
+    return (0..width + SIZE).map { step ->
+        val frame = IntArray(TOTAL)
+        blit(frame, banner, SIZE - step, 3)
+        for (i in frame.indices) {
+            if (frame[i] > 0) {
+                val x = i % SIZE
+                val y = i / SIZE
+                val phase = 2.0 * PI * (x + y + step * 1.5) / 14.0
+                frame[i] = (170 + 85 * sin(phase)).toInt()
+            }
+        }
+        frame
+    }
+}
+
+/**
  * Kaleidoscope: two brightness waves interfere while their direction
  * slowly rotates a full turn per loop, folded into 4-fold mirror
  * symmetry around the center. Pixels stay put; only brightness moves.

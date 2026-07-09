@@ -124,7 +124,11 @@ class MainActivity : Activity() {
             LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         textRow.addView(Button(this).apply {
             text = "Run"
-            setOnClickListener { runCustomText() }
+            setOnClickListener { runCustomText(shimmer = false) }
+        })
+        textRow.addView(Button(this).apply {
+            text = "✨"
+            setOnClickListener { runCustomText(shimmer = true) }
         })
         root.addView(textRow)
         pomodoroHeader = TextView(this).apply {
@@ -238,7 +242,7 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun runCustomText() {
+    private fun runCustomText(shimmer: Boolean = false) {
         val text = customText.text.toString().trim()
         if (text.isEmpty()) {
             status.text = "Type something first"
@@ -246,7 +250,7 @@ class MainActivity : Activity() {
         }
         (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
             .hideSoftInputFromWindow(customText.windowToken, 0)
-        val frames = marqueeFrames(text)
+        val frames = if (shimmer) gradientMarqueeFrames(text) else marqueeFrames(text)
         startAnimation(110) { tick, frame ->
             frames[tick % frames.size].copyInto(frame)
         }
