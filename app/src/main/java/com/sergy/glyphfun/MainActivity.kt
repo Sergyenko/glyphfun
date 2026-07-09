@@ -45,6 +45,8 @@ class MainActivity : Activity() {
     private lateinit var tabStats: TextView
     private var statsVisible = false
     private var lastStatsCount = -1
+    private var statsLiveText: TextView? = null
+    private var statsShowedRunning = false
 
     private val handler = Handler(Looper.getMainLooper())
     private var animator: Runnable? = null
@@ -271,13 +273,40 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
             setPadding(0, 8, 0, 24)
         })
-        if (entries.isEmpty()) {
-            statsContent.addView(TextView(this).apply {
-                text = "No pomodoros completed today yet.\nStart one from the Glyph tab or the QS tile."
-                setTextColor(Color.GRAY)
-                gravity = Gravity.CENTER
-                setPadding(0, 48, 0, 0)
+        // Ongoing session, if any, pinned above the history.
+        statsLiveText = null
+        statsShowedRunning = PomodoroService.running
+        if (PomodoroService.running) {
+            val live = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, 8, 0, 8)
+            }
+            statsLiveText = TextView(this).apply {
+                text = liveSessionText()
+                setTextColor(Color.WHITE)
+                textSize = 15f
+            }
+            live.addView(statsLiveText,
+                LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            live.addView(TextView(this).apply {
+                text = "■"
+                textSize = 20f
+                setTextColor(Color.WHITE)
+                setPadding(28, 8, 8, 8)
+                setOnClickListener { confirmInterrupt() }
             })
+            statsContent.addView(live)
+        }
+        if (entries.isEmpty()) {
+            if (!PomodoroService.running) {
+                statsContent.addView(TextView(this).apply {
+                    text = "No pomodoros completed today yet.\nStart one from the Glyph tab or the QS tile."
+                    setTextColor(Color.GRAY)
+                    gravity = Gravity.CENTER
+                    setPadding(0, 48, 0, 0)
+                })
+            }
             return
         }
         val fmt = SimpleDateFormat("HH:mm", Locale.getDefault())
@@ -359,6 +388,10 @@ class MainActivity : Activity() {
 
     // --- Pomodoro --------------------------------------------------------
 
+    private fun liveSessionText(): String =
+        "▶ ${PomodoroService.phase.label} · ${PomodoroService.remainingText()} left   " +
+            PomodoroService.currentReason.ifEmpty { "(no goal)" }
+
     /** Confirms interruption and logs it with an optional explanation. */
     private fun confirmInterrupt() {
         val input = EditText(this).apply {
@@ -398,9 +431,15 @@ class MainActivity : Activity() {
                 pomodoroBar.visibility = View.GONE
                 pomodoroHeader.text = "🍅 Pomodoro"
             }
-            // Live-refresh the stats list when a pomodoro completes.
-            if (statsVisible && PomodoroLog.todayEntries(this@MainActivity).size != lastStatsCount) {
-                rebuildStats()
+            // Live-refresh the stats tab: new entries, session start/stop,
+            // and the ongoing session's countdown text.
+            if (statsVisible) {
+                if (PomodoroService.running != statsShowedRunning ||
+                    PomodoroLog.todayEntries(this@MainActivity).size != lastStatsCount) {
+                    rebuildStats()
+                } else if (PomodoroService.running) {
+                    statsLiveText?.text = liveSessionText()
+                }
             }
             handler.postDelayed(this, 500)
         }
