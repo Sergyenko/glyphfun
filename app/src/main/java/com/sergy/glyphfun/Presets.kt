@@ -5,6 +5,7 @@ package com.sergy.glyphfun
  * sprites ('X' bright, 'o' dim, '.' transparent) blitted at offsets.
  */
 import kotlin.math.PI
+import kotlin.math.cos
 import kotlin.math.sin
 
 data class Preset(val name: String, val frames: List<IntArray>, val frameMs: Long)
@@ -351,17 +352,23 @@ private fun gradientFrame(): IntArray {
 }
 
 /**
- * Pixels stay put while a smooth brightness wave sweeps diagonally
- * across the matrix, looping seamlessly.
+ * Kaleidoscope: two brightness waves interfere while their direction
+ * slowly rotates a full turn per loop, folded into 4-fold mirror
+ * symmetry around the center. Pixels stay put; only brightness moves.
  */
-private fun movingGradientFrames(): List<IntArray> {
-    val period = SIZE * 2
-    return (0 until period).map { t ->
+private fun kaleidoscopeFrames(): List<IntArray> {
+    val steps = 96
+    return (0 until steps).map { t ->
+        val turn = 2.0 * PI * t / steps
         IntArray(TOTAL) { i ->
-            val x = i % SIZE
-            val y = i / SIZE
-            val phase = 2.0 * PI * (x + y - t) / period
-            (132.5 + 122.5 * sin(phase)).toInt()
+            var x = i % SIZE
+            var y = i / SIZE
+            if (x > SIZE / 2) x = SIZE - 1 - x
+            if (y > SIZE / 2) y = SIZE - 1 - y
+            val u = x * cos(turn) + y * sin(turn)
+            val w = x * sin(turn) - y * cos(turn)
+            val v = sin(2.0 * PI * u / 7 + 3 * turn) + sin(2.0 * PI * w / 9 - 2 * turn)
+            (132.5 + 61.0 * v).toInt().coerceIn(10, 255)
         }
     }
 }
@@ -371,5 +378,5 @@ val PRESETS = listOf(
     Preset("FU", fuckYouFrames(), frameMs = 110),
     Preset("BUTT", scrollFrames(textBanner("NICE BUTT ♥"), y = 3), frameMs = 110),
     Preset("Grad", listOf(gradientFrame()), frameMs = 1000),
-    Preset("Wave", movingGradientFrames(), frameMs = 90),
+    Preset("Kaleido", kaleidoscopeFrames(), frameMs = 90),
 )

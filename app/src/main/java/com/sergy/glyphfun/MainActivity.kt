@@ -17,7 +17,6 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
-import android.widget.HorizontalScrollView
 import android.widget.ProgressBar
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -105,14 +104,11 @@ class MainActivity : Activity() {
         PRESETS.forEach { preset ->
             presetRow.addView(Button(this).apply {
                 text = preset.name
+                textSize = 12f
                 setOnClickListener { startPreset(preset) }
-            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT))
+            }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         }
-        root.addView(HorizontalScrollView(this).apply {
-            isHorizontalScrollBarEnabled = false
-            addView(presetRow)
-        })
+        root.addView(presetRow)
         customText = EditText(this).apply {
             hint = "Custom running text…"
             setTextColor(Color.WHITE)
