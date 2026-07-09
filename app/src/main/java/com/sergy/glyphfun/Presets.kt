@@ -6,6 +6,7 @@ package com.sergy.glyphfun
  */
 import kotlin.math.PI
 import kotlin.math.cos
+import kotlin.math.hypot
 import kotlin.math.sin
 
 data class Preset(val name: String, val frames: List<IntArray>, val frameMs: Long)
@@ -373,10 +374,55 @@ private fun kaleidoscopeFrames(): List<IntArray> {
     }
 }
 
+// --- Anti-aliased smiley ---------------------------------------------------
+
+/**
+ * Coverage of the smiley at a continuous point: a full-width lit disc
+ * with dark eyes and a smile arc. Eyes closed replaces the eyes with
+ * thin lids for the blink frame.
+ */
+private fun smileySample(x: Double, y: Double, closed: Boolean): Double {
+    val r = hypot(x - 6.5, y - 6.5)
+    if (r > 6.5) return 0.0
+    if (r > 5.9) return (6.5 - r) / 0.6            // soft face edge
+    if (closed) {
+        if (y in 4.2..5.4 && (x in 3.0..5.4 || x in 7.6..10.0)) return 0.0
+    } else {
+        if (hypot((x - 4.2) / 0.9, (y - 4.6) / 1.3) < 1.0) return 0.0
+        if (hypot((x - 8.8) / 0.9, (y - 4.6) / 1.3) < 1.0) return 0.0
+    }
+    val mouth = hypot(x - 6.5, y - 4.6)
+    if (mouth in 3.4..4.9 && y > 7.2) return 0.0   // smile arc
+    return 1.0
+}
+
+private fun smileyFrame(closed: Boolean): IntArray {
+    val ss = 8
+    return IntArray(TOTAL) { i ->
+        val px = i % SIZE
+        val py = i / SIZE
+        var acc = 0.0
+        for (sy in 0 until ss) {
+            for (sx in 0 until ss) {
+                acc += smileySample(px + (sx + 0.5) / ss, py + (sy + 0.5) / ss, closed)
+            }
+        }
+        (acc / (ss * ss) * 255).toInt()
+    }
+}
+
+/** Mostly-open frames with a quick two-frame blink at the end. */
+private fun smileyFrames(): List<IntArray> {
+    val open = smileyFrame(closed = false)
+    val blink = smileyFrame(closed = true)
+    return List(26) { open } + listOf(blink, blink)
+}
+
 val PRESETS = listOf(
     Preset("67", sixSevenFrames(), frameMs = 250),
     Preset("FU", fuckYouFrames(), frameMs = 110),
     Preset("BUTT", scrollFrames(textBanner("NICE BUTT ♥"), y = 3), frameMs = 110),
     Preset("Grad", listOf(gradientFrame()), frameMs = 1000),
     Preset("Kaleido", kaleidoscopeFrames(), frameMs = 90),
+    Preset("🙂", smileyFrames(), frameMs = 120),
 )
