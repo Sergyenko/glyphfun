@@ -333,8 +333,23 @@ private fun fuckYouFrames(): List<IntArray> =
 fun marqueeFrames(text: String): List<IntArray> =
     scrollFrames(textBanner(text.uppercase()), y = 3)
 
+/**
+ * Hardware test: 13 columns stepping from brightness 10 to 255.
+ * Count the distinct steps on the LEDs to see how many gray levels
+ * the panel really renders.
+ */
+private fun gradientFrame(): IntArray {
+    val frame = IntArray(TOTAL)
+    for (x in 0 until SIZE) {
+        val v = 10 + (255 - 10) * x / (SIZE - 1)
+        for (y in 0 until SIZE) frame[y * SIZE + x] = v
+    }
+    return frame
+}
+
 val PRESETS = listOf(
     Preset("67", sixSevenFrames(), frameMs = 250),
     Preset("FU", fuckYouFrames(), frameMs = 110),
     Preset("BUTT", scrollFrames(textBanner("NICE BUTT ♥"), y = 3), frameMs = 110),
+    Preset("Grad", listOf(gradientFrame()), frameMs = 1000),
 )
