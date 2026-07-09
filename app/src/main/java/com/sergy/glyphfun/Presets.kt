@@ -312,12 +312,13 @@ private val FONT = mapOf(
     ' ' to List(7) { "..." },
 )
 
-/** Concatenates glyphs into a 7-row banner with 1px letter spacing. */
-private fun textBanner(text: String): List<String> {
+/** Concatenates glyphs into a 7-row banner. */
+private fun textBanner(text: String, spacing: Int = 1): List<String> {
     val banner = MutableList(7) { StringBuilder() }
+    val gap = ".".repeat(spacing)
     text.forEach { ch ->
         val glyph = FONT[ch] ?: FONT.getValue(' ')
-        for (r in 0 until 7) banner[r].append(glyph[r]).append('.')
+        for (r in 0 until 7) banner[r].append(glyph[r]).append(gap)
     }
     return banner.map { it.toString() }
 }
@@ -338,25 +339,28 @@ fun marqueeFrames(text: String): List<IntArray> =
     scrollFrames(textBanner(text.uppercase()), y = 3)
 
 /**
- * Marquee variant where a diagonal brightness wave travels through the
- * letters while they scroll, so the text shimmers instead of being
- * flat white. Letter pixels swing between 85 and 255.
+ * 3D marquee: bright letters carry a dim copy offset one pixel
+ * down-right — a drop shadow that makes them look raised off the
+ * panel — while a shimmer wave rolls over both. Shadow at 40% keeps
+ * the letterforms crisp (a glow ring was tried and floods the tight
+ * counters of the 5x7 font).
  */
 fun gradientMarqueeFrames(text: String): List<IntArray> {
-    val banner = textBanner(text.uppercase())
+    val banner = textBanner(text.uppercase(), spacing = 2)
     val width = banner.maxOf { it.length }
     return (0..width + SIZE).map { step ->
-        val frame = IntArray(TOTAL)
-        blit(frame, banner, SIZE - step, 3)
-        for (i in frame.indices) {
-            if (frame[i] > 0) {
-                val x = i % SIZE
-                val y = i / SIZE
-                val phase = 2.0 * PI * (x + y + step * 1.5) / 14.0
-                frame[i] = (170 + 85 * sin(phase)).toInt()
+        val core = IntArray(TOTAL)
+        blit(core, banner, SIZE - step, 3)
+        IntArray(TOTAL) { i ->
+            val x = i % SIZE
+            val y = i / SIZE
+            val shine = 170 + 85 * sin(2.0 * PI * (x + y + step * 1.5) / 14.0)
+            when {
+                core[i] > 0 -> shine.toInt()
+                x >= 1 && y >= 1 && core[(y - 1) * SIZE + (x - 1)] > 0 -> (shine * 0.4).toInt()
+                else -> 0
             }
         }
-        frame
     }
 }
 
