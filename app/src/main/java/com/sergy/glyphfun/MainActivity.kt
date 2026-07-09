@@ -6,12 +6,14 @@ import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.Rect
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.Icon
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowInsets
 import android.view.inputmethod.EditorInfo
@@ -63,6 +65,27 @@ class MainActivity : Activity() {
             PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1)
         }
+    }
+
+    /** Tapping anywhere outside a text field dismisses the keyboard. */
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (ev.action == MotionEvent.ACTION_DOWN) {
+            val focused = currentFocus
+            if (focused is EditText) {
+                val bounds = Rect()
+                focused.getGlobalVisibleRect(bounds)
+                if (!bounds.contains(ev.rawX.toInt(), ev.rawY.toInt())) {
+                    focused.clearFocus()
+                    hideKeyboard(focused)
+                }
+            }
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
+    private fun hideKeyboard(view: View) {
+        (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
+            .hideSoftInputFromWindow(view.windowToken, 0)
     }
 
     override fun onDestroy() {
@@ -162,6 +185,12 @@ class MainActivity : Activity() {
             setTextColor(Color.WHITE)
             setHintTextColor(Color.GRAY)
             isSingleLine = true
+            imeOptions = EditorInfo.IME_ACTION_DONE
+            setOnEditorActionListener { v, _, _ ->
+                hideKeyboard(v)
+                v.clearFocus()
+                true
+            }
         }
         glyphTab.addView(reasonInput)
         glyphTab.addView(buttonRow(
@@ -381,8 +410,7 @@ class MainActivity : Activity() {
             status.text = "Type something first"
             return
         }
-        (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
-            .hideSoftInputFromWindow(customText.windowToken, 0)
+        hideKeyboard(customText)
         val frames = if (shimmer) gradientMarqueeFrames(text) else marqueeFrames(text)
         startAnimation(110) { tick, frame ->
             frames[tick % frames.size].copyInto(frame)
