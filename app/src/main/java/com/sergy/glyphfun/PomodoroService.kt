@@ -16,6 +16,7 @@ import android.os.VibrationEffect
 import android.os.VibratorManager
 import android.service.quicksettings.TileService
 import kotlin.math.ceil
+import kotlin.random.Random
 
 /**
  * Pomodoro timer as a foreground service, visualized on the Glyph
@@ -71,10 +72,14 @@ class PomodoroService : Service() {
     private val total = size * size
     private val handler = Handler(Looper.getMainLooper())
     private var wakeLock: PowerManager.WakeLock? = null
-    private var lastLit = -1
     private var lastNotifiedMinute = -1L
     private var blinkTicksLeft = 0
-    private var drainOrder = (0 until total).shuffled().toIntArray()
+
+    // The "reaper": a half-bright pixel wandering across the lit field;
+    // whatever it stands on when a removal is due goes dark.
+    private var alive = BooleanArray(total) { true }
+    private var aliveCount = total
+    private var reaper = 0
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -99,9 +104,8 @@ class PomodoroService : Service() {
         phase = Phase.FOCUS
         endsAt = SystemClock.elapsedRealtime() + phase.durationMs
         running = true
-        lastLit = -1
         lastNotifiedMinute = -1
-        drainOrder = (0 until total).shuffled().toIntArray()
+        resetField()
         acquireWakeLock(phase.durationMs)
         handler.removeCallbacksAndMessages(null)
         handler.post(tick)
@@ -139,9 +143,8 @@ class PomodoroService : Service() {
                 else longArrayOf(0, 120, 80, 120))
         phase = phase.next()
         endsAt = SystemClock.elapsedRealtime() + phase.durationMs
-        lastLit = -1
         lastNotifiedMinute = -1
-        drainOrder = (0 until total).shuffled().toIntArray()
+        resetField()
         acquireWakeLock(phase.durationMs)
         blinkTicksLeft = 6
     }
@@ -155,23 +158,52 @@ class PomodoroService : Service() {
         blinkTicksLeft--
     }
 
+    private fun resetField() {
+        alive.fill(true)
+        aliveCount = total
+        reaper = Random.nextInt(total)
+    }
+
     /**
-     * Pixels wink out one by one at random positions as time passes.
-     * The removal order is shuffled once per phase so already-dark
-     * pixels stay dark. The next pixel due for removal drops to half
-     * brightness first, so it visibly fades before disappearing.
+     * The reaper wanders one step per second across still-lit pixels at
+     * half brightness. When the elapsed time calls for another removal,
+     * the pixel it currently stands on goes dark for the rest of the
+     * phase, and the walk continues over what remains.
      */
     private fun drawProgress() {
         val fraction = remainingMs().toDouble() / phase.durationMs
-        val lit = ceil(fraction * total).toInt().coerceIn(0, total)
-        if (lit == lastLit) return
-        lastLit = lit
-        val removed = total - lit
-        val frame = IntArray(total) { phase.brightness }
-        for (i in 0 until removed) frame[drainOrder[i]] = 0
-        if (removed < total) frame[drainOrder[removed]] = phase.brightness / 2
+        val target = ceil(fraction * total).toInt().coerceIn(0, total)
+        while (aliveCount > target) {
+            alive[reaper] = false
+            aliveCount--
+            moveReaper()
+        }
+        moveReaper()
+        val frame = IntArray(total)
+        for (i in 0 until total) if (alive[i]) frame[i] = phase.brightness
+        if (aliveCount > 0) frame[reaper] = phase.brightness / 2
         currentFrame = frame
         GlyphLink.pushFrame(this, frame)
+    }
+
+    /** Steps to a random lit neighbour, or teleports if boxed in. */
+    private fun moveReaper() {
+        if (aliveCount == 0) return
+        val x = reaper % size
+        val y = reaper / size
+        val neighbors = mutableListOf<Int>()
+        for (dy in -1..1) {
+            for (dx in -1..1) {
+                if (dx == 0 && dy == 0) continue
+                val nx = x + dx
+                val ny = y + dy
+                if (nx in 0 until size && ny in 0 until size && alive[ny * size + nx]) {
+                    neighbors += ny * size + nx
+                }
+            }
+        }
+        reaper = if (neighbors.isNotEmpty()) neighbors.random()
+                 else (0 until total).filter { alive[it] }.random()
     }
 
     private var tickCount = 0

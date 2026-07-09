@@ -13,7 +13,10 @@ import android.os.Looper
 import android.view.Gravity
 import android.view.View
 import android.view.WindowInsets
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.Button
+import android.widget.EditText
 import android.widget.HorizontalScrollView
 import android.widget.ProgressBar
 import android.widget.LinearLayout
@@ -27,6 +30,7 @@ class MainActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var pomodoroHeader: TextView
     private lateinit var pomodoroBar: ProgressBar
+    private lateinit var customText: EditText
 
     private val handler = Handler(Looper.getMainLooper())
     private var animator: Runnable? = null
@@ -109,6 +113,22 @@ class MainActivity : Activity() {
             isHorizontalScrollBarEnabled = false
             addView(presetRow)
         })
+        customText = EditText(this).apply {
+            hint = "Custom running text…"
+            setTextColor(Color.WHITE)
+            setHintTextColor(Color.GRAY)
+            isSingleLine = true
+            imeOptions = EditorInfo.IME_ACTION_GO
+            setOnEditorActionListener { _, _, _ -> runCustomText(); true }
+        }
+        val textRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        textRow.addView(customText,
+            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        textRow.addView(Button(this).apply {
+            text = "Run"
+            setOnClickListener { runCustomText() }
+        })
+        root.addView(textRow)
         pomodoroHeader = TextView(this).apply {
             text = "Pomodoro"
             setTextColor(Color.LTGRAY)
@@ -217,6 +237,20 @@ class MainActivity : Activity() {
     private fun startPreset(preset: Preset) {
         startAnimation(preset.frameMs) { tick, frame ->
             preset.frames[tick % preset.frames.size].copyInto(frame)
+        }
+    }
+
+    private fun runCustomText() {
+        val text = customText.text.toString().trim()
+        if (text.isEmpty()) {
+            status.text = "Type something first"
+            return
+        }
+        (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager)
+            .hideSoftInputFromWindow(customText.windowToken, 0)
+        val frames = marqueeFrames(text)
+        startAnimation(110) { tick, frame ->
+            frames[tick % frames.size].copyInto(frame)
         }
     }
 

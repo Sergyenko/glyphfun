@@ -329,6 +329,10 @@ private fun scrollFrames(sprite: List<String>, y: Int): List<IntArray> {
 private fun fuckYouFrames(): List<IntArray> =
     scrollFrames(textBanner("FUCK YOU"), y = 3)
 
+/** Frames for a custom scrolling message (A–Z, space and ♥; rest blank). */
+fun marqueeFrames(text: String): List<IntArray> =
+    scrollFrames(textBanner(text.uppercase()), y = 3)
+
 val PRESETS = listOf(
     Preset("67", sixSevenFrames(), frameMs = 250),
     Preset("FU", fuckYouFrames(), frameMs = 110),
