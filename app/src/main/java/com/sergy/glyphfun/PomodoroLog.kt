@@ -19,6 +19,7 @@ object PomodoroLog {
         val rating: String?,
         val completed: Boolean = true,
         val note: String = "",
+        val durationMs: Long = 0,
     )
 
     const val RATING_GOOD = "good"
@@ -34,10 +35,12 @@ object PomodoroLog {
         val arr = JSONArray(raw)
         return (0 until arr.length()).map { i ->
             val o = arr.getJSONObject(i)
+            val completed = o.optBoolean("completed", true)
             Entry(o.getLong("ts"), o.optString("reason"),
                 o.optString("rating").ifEmpty { null },
-                o.optBoolean("completed", true),
-                o.optString("note"))
+                completed,
+                o.optString("note"),
+                o.optLong("dur", if (completed) 25 * 60_000L else 0))
         }
     }
 
@@ -48,13 +51,15 @@ object PomodoroLog {
         }
     }
 
-    fun add(context: Context, reason: String) {
-        save(context, entries(context) + Entry(System.currentTimeMillis(), reason, null))
+    fun add(context: Context, reason: String, durationMs: Long) {
+        save(context, entries(context) +
+            Entry(System.currentTimeMillis(), reason, null, durationMs = durationMs))
     }
 
-    fun addInterrupted(context: Context, reason: String, note: String) {
+    fun addInterrupted(context: Context, reason: String, note: String, durationMs: Long) {
         save(context, entries(context) +
-            Entry(System.currentTimeMillis(), reason, null, completed = false, note = note))
+            Entry(System.currentTimeMillis(), reason, null,
+                completed = false, note = note, durationMs = durationMs))
     }
 
     fun delete(context: Context, ts: Long) {
@@ -74,6 +79,7 @@ object PomodoroLog {
                 e.rating?.let { put("rating", it) }
                 if (!e.completed) put("completed", false)
                 if (e.note.isNotEmpty()) put("note", e.note)
+                put("dur", e.durationMs)
             })
         }
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()

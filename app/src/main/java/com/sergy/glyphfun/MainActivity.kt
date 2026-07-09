@@ -266,8 +266,9 @@ class MainActivity : Activity() {
         val interrupted = entries.size - completed
         val good = entries.count { it.rating == PomodoroLog.RATING_GOOD }
         val bad = entries.count { it.rating == PomodoroLog.RATING_BAD }
+        val totalMs = entries.sumOf { it.durationMs }
         statsContent.addView(TextView(this).apply {
-            text = "Today — $completed 🍅    👍 $good · 👎 $bad" +
+            text = "Today — $completed 🍅 · ${fmtDuration(totalMs)}    👍 $good · 👎 $bad" +
                 if (interrupted > 0) "    ✗ $interrupted" else ""
             setTextColor(Color.WHITE)
             textSize = 18f
@@ -317,10 +318,11 @@ class MainActivity : Activity() {
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(0, 8, 0, 8)
             }
+            val duration = fmtDuration(entry.durationMs)
             val label = if (entry.completed) {
-                "${fmt.format(Date(entry.ts))}   ${entry.reason.ifEmpty { "(no goal)" }}"
+                "${fmt.format(Date(entry.ts))} · $duration   ${entry.reason.ifEmpty { "(no goal)" }}"
             } else {
-                "${fmt.format(Date(entry.ts))}   ✗ ${entry.reason.ifEmpty { "(no goal)" }}" +
+                "${fmt.format(Date(entry.ts))} · $duration   ✗ ${entry.reason.ifEmpty { "(no goal)" }}" +
                     if (entry.note.isNotEmpty()) " — ${entry.note}" else ""
             }
             row.addView(TextView(this).apply {
@@ -389,6 +391,15 @@ class MainActivity : Activity() {
 
     // --- Pomodoro --------------------------------------------------------
 
+    private fun fmtDuration(ms: Long): String {
+        val minutes = ms / 60_000
+        return when {
+            ms < 60_000 -> "${ms / 1000}s"
+            minutes < 60 -> "${minutes}m"
+            else -> "%dh %02dm".format(minutes / 60, minutes % 60)
+        }
+    }
+
     private fun liveSessionText(): String =
         "▶ ${PomodoroService.phase.label} · ${PomodoroService.remainingText()} left   " +
             PomodoroService.currentReason.ifEmpty { "(no goal)" }
@@ -412,7 +423,8 @@ class MainActivity : Activity() {
                 if (PomodoroService.running &&
                     PomodoroService.phase == PomodoroService.Phase.FOCUS) {
                     PomodoroLog.addInterrupted(this,
-                        PomodoroService.currentReason, input.text.toString().trim())
+                        PomodoroService.currentReason, input.text.toString().trim(),
+                        PomodoroService.elapsedMs())
                 }
                 pomodoro(PomodoroService.ACTION_STOP)
             }

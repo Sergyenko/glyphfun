@@ -63,6 +63,9 @@ class PomodoroService : Service() {
 
         fun remainingMinutes(): Long = (remainingMs() + 59_999) / 60_000
 
+        /** Time spent in the current phase so far. */
+        fun elapsedMs(): Long = if (!running) 0 else phase.durationMs - remainingMs()
+
         /** Elapsed fraction of the current phase, 0..1. */
         fun progressFraction(): Float =
             if (!running) 0f else 1f - remainingMs().toFloat() / phase.durationMs
@@ -149,7 +152,7 @@ class PomodoroService : Service() {
     private fun onPhaseEnd() {
         if (phase == Phase.FOCUS) {
             // Focus done: log it and roll into the break.
-            PomodoroLog.add(this, currentReason)
+            PomodoroLog.add(this, currentReason, phase.durationMs)
             beep()
             vibrate(longArrayOf(0, 350, 150, 350, 150, 350))
             phase = Phase.BREAK
