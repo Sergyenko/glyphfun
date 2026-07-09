@@ -18,6 +18,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.ScrollView
@@ -398,9 +399,15 @@ class MainActivity : Activity() {
             hint = "Why interrupt? (optional)"
             isSingleLine = true
         }
+        // Align the field with the dialog title's standard inset.
+        val container = FrameLayout(this).apply {
+            val pad = (24 * resources.displayMetrics.density).toInt()
+            setPadding(pad, (8 * resources.displayMetrics.density).toInt(), pad, 0)
+            addView(input)
+        }
         AlertDialog.Builder(this)
             .setTitle("Interrupt pomodoro?")
-            .setView(input)
+            .setView(container)
             .setPositiveButton("Interrupt") { _, _ ->
                 if (PomodoroService.running &&
                     PomodoroService.phase == PomodoroService.Phase.FOCUS) {
