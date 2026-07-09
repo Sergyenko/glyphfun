@@ -7,6 +7,8 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.ComponentName
 import android.content.Intent
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
@@ -37,6 +39,11 @@ class PomodoroService : Service() {
     companion object {
         const val ACTION_START = "com.sergy.glyphfun.POMODORO_START"
         const val ACTION_STOP = "com.sergy.glyphfun.POMODORO_STOP"
+        const val EXTRA_REASON = "com.sergy.glyphfun.EXTRA_REASON"
+
+        /** What the current session is for; shown and logged on completion. */
+        @Volatile
+        var currentReason = ""
         private const val CHANNEL = "pomodoro"
         private const val NOTIF_ID = 1
 
@@ -85,7 +92,10 @@ class PomodoroService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_START -> start()
+            ACTION_START -> {
+                currentReason = intent.getStringExtra(EXTRA_REASON)?.trim().orEmpty()
+                start()
+            }
             ACTION_STOP -> stop()
         }
         return START_NOT_STICKY
@@ -139,6 +149,10 @@ class PomodoroService : Service() {
     }
 
     private fun onPhaseEnd() {
+        if (phase == Phase.FOCUS) {
+            PomodoroLog.add(this, currentReason)
+            beep()
+        }
         vibrate(if (phase == Phase.FOCUS) longArrayOf(0, 350, 150, 350, 150, 350)
                 else longArrayOf(0, 120, 80, 120))
         phase = phase.next()
@@ -225,6 +239,15 @@ class PomodoroService : Service() {
         wakeLock = (getSystemService(POWER_SERVICE) as PowerManager)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "glyphfun:pomodoro")
             .apply { acquire(durationMs + 60_000) }
+    }
+
+    private fun beep() {
+        try {
+            val tone = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 85)
+            tone.startTone(ToneGenerator.TONE_PROP_BEEP2, 500)
+            handler.postDelayed({ tone.release() }, 700)
+        } catch (_: Exception) {
+        }
     }
 
     private fun vibrate(pattern: LongArray) {

@@ -18,9 +18,13 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
-import android.widget.ProgressBar
 import android.widget.LinearLayout
+import android.widget.ProgressBar
+import android.widget.ScrollView
 import android.widget.TextView
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.random.Random
 
 class MainActivity : Activity() {
@@ -31,6 +35,14 @@ class MainActivity : Activity() {
     private lateinit var pomodoroHeader: TextView
     private lateinit var pomodoroBar: ProgressBar
     private lateinit var customText: EditText
+    private lateinit var reasonInput: EditText
+    private lateinit var glyphTab: LinearLayout
+    private lateinit var statsTab: ScrollView
+    private lateinit var statsContent: LinearLayout
+    private lateinit var tabGlyph: TextView
+    private lateinit var tabStats: TextView
+    private var statsVisible = false
+    private var lastStatsCount = -1
 
     private val handler = Handler(Looper.getMainLooper())
     private var animator: Runnable? = null
@@ -92,14 +104,33 @@ class MainActivity : Activity() {
             setTextColor(Color.WHITE)
             textSize = 20f
             gravity = Gravity.CENTER
-            setPadding(0, 0, 0, 32)
+            setPadding(0, 0, 0, 16)
         })
-        root.addView(grid)
-        root.addView(status)
+
+        // Tab bar: Glyph playground | Pomodoro stats
+        tabGlyph = tabLabel("Glyph") { selectTab(stats = false) }
+        tabStats = tabLabel("🍅 Stats") { selectTab(stats = true) }
+        val tabRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        tabRow.addView(tabGlyph, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        tabRow.addView(tabStats, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        root.addView(tabRow)
+
+        glyphTab = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        statsContent = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, 16, 0, 16)
+        }
+        statsTab = ScrollView(this).apply {
+            visibility = View.GONE
+            addView(statsContent)
+        }
+
+        glyphTab.addView(grid)
+        glyphTab.addView(status)
         val animations = listOf<Pair<String, () -> Unit>>("Life" to { startLife() }) +
             PRESETS.map { preset -> preset.name to { startPreset(preset) } }
         animations.chunked(4).forEach { chunk ->
-            root.addView(buttonRow(*chunk.toTypedArray()))
+            glyphTab.addView(buttonRow(*chunk.toTypedArray()))
         }
         customText = EditText(this).apply {
             hint = "Custom running text…"
@@ -120,27 +151,34 @@ class MainActivity : Activity() {
             text = "✨"
             setOnClickListener { runCustomText(shimmer = true) }
         })
-        root.addView(textRow)
+        glyphTab.addView(textRow)
         pomodoroHeader = TextView(this).apply {
             text = "🍅 Pomodoro"
             setTextColor(Color.LTGRAY)
             gravity = Gravity.CENTER
             setPadding(0, 24, 0, 8)
         }
-        root.addView(pomodoroHeader)
+        glyphTab.addView(pomodoroHeader)
         pomodoroBar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 1000
             visibility = View.GONE
         }
-        root.addView(pomodoroBar, LinearLayout.LayoutParams(
+        glyphTab.addView(pomodoroBar, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
-        root.addView(buttonRow(
+        reasonInput = EditText(this).apply {
+            hint = "What are you working on?"
+            setTextColor(Color.WHITE)
+            setHintTextColor(Color.GRAY)
+            isSingleLine = true
+        }
+        glyphTab.addView(reasonInput)
+        glyphTab.addView(buttonRow(
             "▶ Focus" to { pomodoro(PomodoroService.ACTION_START) },
             "■ Stop" to { pomodoro(PomodoroService.ACTION_STOP) },
             "Add tile" to { requestPomodoroTile() }))
 
         // Spacer pushes the control icons to the very bottom.
-        root.addView(View(this),
+        glyphTab.addView(View(this),
             LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
         val density = resources.displayMetrics.density
         val buttonSize = (56 * density).toInt()
@@ -154,10 +192,86 @@ class MainActivity : Activity() {
                 marginStart = buttonMargin
                 marginEnd = buttonMargin
             })
-        root.addView(controls, LinearLayout.LayoutParams(
+        glyphTab.addView(controls, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT))
+
+        root.addView(glyphTab, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        root.addView(statsTab, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
         setContentView(root)
+        selectTab(stats = false)
+    }
+
+    private fun tabLabel(label: String, onClick: () -> Unit): TextView =
+        TextView(this).apply {
+            text = label
+            textSize = 16f
+            gravity = Gravity.CENTER
+            setPadding(0, 16, 0, 24)
+            setOnClickListener { onClick() }
+        }
+
+    private fun selectTab(stats: Boolean) {
+        statsVisible = stats
+        statsTab.visibility = if (stats) View.VISIBLE else View.GONE
+        glyphTab.visibility = if (stats) View.GONE else View.VISIBLE
+        tabStats.setTextColor(if (stats) Color.WHITE else Color.GRAY)
+        tabGlyph.setTextColor(if (stats) Color.GRAY else Color.WHITE)
+        if (stats) rebuildStats()
+    }
+
+    /** Today's completed pomodoros, newest first, with 👍/👎 rating. */
+    private fun rebuildStats() {
+        statsContent.removeAllViews()
+        val entries = PomodoroLog.todayEntries(this).sortedByDescending { it.ts }
+        lastStatsCount = entries.size
+        val good = entries.count { it.rating == PomodoroLog.RATING_GOOD }
+        val bad = entries.count { it.rating == PomodoroLog.RATING_BAD }
+        statsContent.addView(TextView(this).apply {
+            text = "Today — ${entries.size} 🍅    👍 $good · 👎 $bad"
+            setTextColor(Color.WHITE)
+            textSize = 18f
+            gravity = Gravity.CENTER
+            setPadding(0, 8, 0, 24)
+        })
+        if (entries.isEmpty()) {
+            statsContent.addView(TextView(this).apply {
+                text = "No pomodoros completed today yet.\nStart one from the Glyph tab or the QS tile."
+                setTextColor(Color.GRAY)
+                gravity = Gravity.CENTER
+                setPadding(0, 48, 0, 0)
+            })
+            return
+        }
+        val fmt = SimpleDateFormat("HH:mm", Locale.getDefault())
+        entries.forEach { entry ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, 8, 0, 8)
+            }
+            row.addView(TextView(this).apply {
+                text = "${fmt.format(Date(entry.ts))}   ${entry.reason.ifEmpty { "(no goal)" }}"
+                setTextColor(Color.LTGRAY)
+                textSize = 15f
+            }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            listOf(PomodoroLog.RATING_GOOD to "👍", PomodoroLog.RATING_BAD to "👎")
+                .forEach { (value, icon) ->
+                    row.addView(TextView(this).apply {
+                        text = icon
+                        textSize = 20f
+                        alpha = if (entry.rating == value) 1f else 0.3f
+                        setPadding(28, 8, 28, 8)
+                        setOnClickListener {
+                            PomodoroLog.rate(this@MainActivity, entry.ts, value)
+                            rebuildStats()
+                        }
+                    })
+                }
+            statsContent.addView(row)
+        }
     }
 
     private fun roundButton(symbol: String, action: () -> Unit): TextView =
@@ -229,6 +343,10 @@ class MainActivity : Activity() {
                 pomodoroBar.visibility = View.GONE
                 pomodoroHeader.text = "🍅 Pomodoro"
             }
+            // Live-refresh the stats list when a pomodoro completes.
+            if (statsVisible && PomodoroLog.todayEntries(this@MainActivity).size != lastStatsCount) {
+                rebuildStats()
+            }
             handler.postDelayed(this, 500)
         }
     }
@@ -250,7 +368,9 @@ class MainActivity : Activity() {
             return
         }
         stopAnimation()
-        startForegroundService(Intent(this, PomodoroService::class.java).setAction(action))
+        startForegroundService(Intent(this, PomodoroService::class.java)
+            .setAction(action)
+            .putExtra(PomodoroService.EXTRA_REASON, reasonInput.text.toString()))
         status.text = if (action == PomodoroService.ACTION_START)
             "Pomodoro started — 25 min focus" else "Pomodoro stopped"
     }
