@@ -243,22 +243,6 @@ class MainActivity : Activity() {
         super.onPause()
     }
 
-    /**
-     * Yield the matrix when the activity leaves the screen (app switch,
-     * screen off, flip-to-glyph): pause the animation and release the
-     * app channel so system glyphs (clock, toys) can own the panel.
-     * The same animation resumes where it left off on return.
-     */
-    override fun onStop() {
-        animator?.let { handler.removeCallbacks(it) }
-        GlyphLink.closeApp(this)
-        super.onStop()
-    }
-
-    override fun onStart() {
-        super.onStart()
-        animator?.let { handler.post(it) }
-    }
 
     private fun pomodoro(action: String) {
         if (action == PomodoroService.ACTION_STOP && !PomodoroService.running) {
